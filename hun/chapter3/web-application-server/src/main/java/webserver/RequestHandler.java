@@ -15,6 +15,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import db.DataBase;
 import model.User;
 import util.HttpRequestUtils;
 
@@ -36,7 +37,10 @@ public class RequestHandler extends Thread {
 			//1단계
 			BufferedReader buffer = new BufferedReader(new InputStreamReader(in,"UTF-8"));
 			String line, url = null;
+			String code = "200";
 			Map<String, Object> requestMap = null;
+			
+			String type = "text/html";	
 			
 			int index = 0;
 			while (!"".equals(line = buffer.readLine())) {
@@ -49,6 +53,8 @@ public class RequestHandler extends Thread {
 					requestMap = getRequestUrlInfo(line);
 					
 					url = (String) requestMap.get("url");
+					log.error("{}", getRequestFileType(url));
+					type = (getRequestFileType(url).equals("css")) ? "text/css" : type;
 					log.info(url);		//요청 URL
 				}
 				
@@ -64,7 +70,11 @@ public class RequestHandler extends Thread {
 						(String) requestMap.get("email")
 				);
 				
+				DataBase.addUser(user);
 				log.info("회원가입 정보 : {}", user);
+				
+				url = "/index.html";
+				code = "302";
 			}
 			
 			
@@ -76,7 +86,16 @@ public class RequestHandler extends Thread {
         	
             DataOutputStream dos = new DataOutputStream(out);
             //byte[] body = "Hello World".getBytes();
-            response200Header(dos, body.length);
+            
+            
+            //response 정보
+            Response response = new Response();
+            response.setCode(code);
+            response.setType(type);
+            response.setUrl(url);
+            response.setLengthOfBodyContent(body.length);
+            
+            responseHeader(dos, response);
             responseBody(dos, body);
         } catch (IOException e) {
             log.error(e.getMessage());
@@ -87,28 +106,51 @@ public class RequestHandler extends Thread {
     	Map<String, Object> result = new HashMap<>();
     	
     	String[] tempAray = line.split(" ");
+    	
     	String url = tempAray[1];
+    	String parameter = null;
     	
     	int index = url.indexOf("?");
-    	if (index < 0) {
-    		result.put("url", url);
-    		return result;
+    	if (index > 0) {
+    		log.error("파라미터 존재");
+        	parameter = url.substring(index + 1);
+        	url = url.substring(0, index);
     	}
-    	
-    	log.error("파라미터 존재");
-    	String parameter = url.substring(index + 1);
 		
-		result.put("url", url.substring(0, index));
+    	result.put("method", tempAray[0]);
+		result.put("url", url);
 		result.put("param", HttpRequestUtils.parseQueryString(parameter));
+		
+		log.info("url 정보 : {}", result);
 		
 		return result;
 	}
 
-	private void response200Header(DataOutputStream dos, int lengthOfBodyContent) {
+	private void responseHeader(DataOutputStream dos, Response response) {
+		if (response.getCode().equals("302")) {
+			System.out.println(302);
+			response302Header(dos, response.getUrl());
+		} else {
+			System.out.println(200);
+			response200Header(dos, response);
+		}
+    }
+	
+	private void response302Header(DataOutputStream dos, String url) {
         try {
+            dos.writeBytes("HTTP/1.1 302 OK \r\n");
+            dos.writeBytes("Location : " + url + "\r\n");
+            dos.writeBytes("\r\n");
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
+    }
+	
+	private void response200Header(DataOutputStream dos, Response response) {
+		try {
             dos.writeBytes("HTTP/1.1 200 OK \r\n");
-            dos.writeBytes("Content-Type: text/html;charset=utf-8\r\n");
-            dos.writeBytes("Content-Length: " + lengthOfBodyContent + "\r\n");
+            dos.writeBytes("Content-Type: " + response.getType() + ";charset=utf-8\r\n");
+            dos.writeBytes("Content-Length: " + response.getLengthOfBodyContent() + "\r\n");
             dos.writeBytes("\r\n");
         } catch (IOException e) {
             log.error(e.getMessage());
@@ -124,5 +166,16 @@ public class RequestHandler extends Thread {
         }
     }
     
+    
+    private void urlAnalyze() {
+    	//확장자
+    	
+    }
+
+    //확장자 반환
+    private String getRequestFileType(String url) {
+    	int index = url.lastIndexOf(".");
+    	return url.substring(index + 1);
+    }
     
 }
