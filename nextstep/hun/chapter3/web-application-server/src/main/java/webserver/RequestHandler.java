@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import db.DataBase;
 import model.User;
 import util.HttpRequestUtils;
+import util.IOUtils;
 
 public class RequestHandler extends Thread {
     private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
@@ -34,13 +35,14 @@ public class RequestHandler extends Thread {
 
         try (InputStream in = connection.getInputStream(); OutputStream out = connection.getOutputStream()) {
 
-			//1단계
 			BufferedReader buffer = new BufferedReader(new InputStreamReader(in,"UTF-8"));
 			String line, url = null;
 			String code = "200";
 			Map<String, Object> requestMap = null;
+			Map<String, String> param = null;
 			
 			String type = "text/html";	
+			int contentLength = 0;
 			
 			int index = 0;
 			while (!"".equals(line = buffer.readLine())) {
@@ -48,31 +50,38 @@ public class RequestHandler extends Thread {
 					return;
 				}
 				
-				//2단계
+				//요청 URL 분석
 				if ((index++) == 0) {
 					requestMap = getRequestUrlInfo(line);
 					
 					url = (String) requestMap.get("url");
-					log.error("{}", getRequestFileType(url));
 					type = (getRequestFileType(url).equals("css")) ? "text/css" : type;
 					log.info(url);		//요청 URL
 				}
 				
 				log.debug(line);
+				
+				if (line.indexOf("Content-Length") >= 0) {
+					contentLength = getContentLength(line);
+				}
+			}
+			
+			//param
+			if ("POST".equals((String) requestMap.get("method"))) {
+				String body = IOUtils.readData(buffer, contentLength);
+				param = HttpRequestUtils.parseQueryString(body);
+			} else {
+				param = (Map<String, String>) requestMap.get("param");
 			}
 			
 			//회원가입
 			if (url.indexOf("create") >= 0) {
-				User user = new User(
-						(String) requestMap.get("userId"),
-						(String) requestMap.get("password"),
-						(String) requestMap.get("name"),
-						(String) requestMap.get("email")
-				);
+				User user = new User(param);
 				
 				DataBase.addUser(user);
 				log.info("회원가입 정보 : {}", user);
 				
+				//회원가입후 리다이렉트
 				url = "/index.html";
 				code = "302";
 			}
@@ -177,5 +186,23 @@ public class RequestHandler extends Thread {
     	int index = url.lastIndexOf(".");
     	return url.substring(index + 1);
     }
+    
+    private int getContentLength(String line) {
+		String CONTENT_LENGTH = "Content-Length: ";
+		if (line.indexOf(CONTENT_LENGTH) >= 0) {
+			return Integer.parseInt(line.substring(CONTENT_LENGTH.length()));
+		}
+		
+		return 0;
+    }
+    
+    /*private Map<String, String> getParam(String method) {
+    	if ("POST".equals(method)) {
+			String body = IOUtils.readData(buffer, contentLength);
+			return HttpRequestUtils.parseQueryString(body);
+		}
+    	
+		return (Map<String, String>) requestMap.get("param");
+    }*/
     
 }
