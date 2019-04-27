@@ -52,6 +52,13 @@ public class HttpRequestUtils {
     public static Pair parseHeader(String header) {
         return getKeyValue(header, ": ");
     }
+    
+    //확장자 반환
+    public static String getFileType(String fileName) {
+    	int index = fileName.lastIndexOf(".");
+    	return fileName.substring(index + 1);
+    }
+    
 
     public static class Pair {
         String key;
