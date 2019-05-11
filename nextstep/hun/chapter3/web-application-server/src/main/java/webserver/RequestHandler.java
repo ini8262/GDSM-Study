@@ -94,19 +94,6 @@ public class RequestHandler extends Thread {
 		return result;
 	}
 
-	
-	
-	/*private void responseHeaderSetCookie(DataOutputStream dos, Map<String, String> cookie) {
-		
-		String serializableCookie = cookie.toString();
-		
-		try {
-			dos.writeBytes("Set-Cookie: " + serializableCookie.substring(1, serializableCookie.length() -1) + ";\r\n");
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}*/
-
 	 private Map<String, String> getParameter(BufferedReader buffer, Map<String, Object> requestMap, int contentLength) throws IOException {
 		 if ("POST".equals((String) requestMap.get("method"))) {
 			 String body = IOUtils.readData(buffer, contentLength);

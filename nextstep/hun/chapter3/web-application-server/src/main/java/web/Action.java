@@ -1,12 +1,9 @@
 package web;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.file.Files;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -15,14 +12,13 @@ import org.slf4j.LoggerFactory;
 import db.DataBase;
 import model.User;
 import util.HttpRequestUtils;
-import util.IOUtils;
 import webserver.ResponseHandler;
 
 public class Action {
 	private static final Logger log = LoggerFactory.getLogger(Action.class);
 	
 	Map<String, String> responseParam = new HashMap<String, String>(); 
-	Map<String, Object> returnMap = new HashMap<String, Object>(); 
+	Map<String, Object> model = new HashMap<String, Object>(); 
 	
 	private String cookies;
 	private String method;
@@ -34,6 +30,8 @@ public class Action {
 			create(parameter);
 		} else if (url.indexOf("login") >= 0) {
 			login(parameter);
+		} else if (url.indexOf("logout") >= 0) {
+			logout(parameter);
 		} else if (url.indexOf("list") >= 0) {
 			list(parameter);
 		} else {
@@ -42,33 +40,11 @@ public class Action {
 		
 		//클라이언트에게 응답
 		ResponseHandler responseHandler = new ResponseHandler(responseParam.get("code"), responseParam.get("url"));
-		//byte[] body = getBody(url);
 		
-		//responseHandler.response(out, body);
 		responseHandler.setCookie(cookies);
+		responseHandler.setModel(model);
 		responseHandler.response(out);
 	}
-	
-	
-	private byte[] getBody(String url) throws IOException {
-		
-		//임시적인것
-		if (url.indexOf("list") >= 0) {
-			Collection<User> colec = (Collection<User>) returnMap.get("list");
-			StringBuilder sb = new StringBuilder();
-			for (User user : colec) {
-				sb.append(user.toString());
-			}
-			
-			return String.valueOf(sb).getBytes();
-		}
-		
-		String fileName = "./webapp" + url;
-	    File file = new File(fileName);
-
-	    return Files.readAllBytes(file.toPath());
-	}
-	
 
 	private void setResponseParam(String url, String code) {
 		responseParam.put("url", url);
@@ -112,6 +88,11 @@ public class Action {
 		}
 	}
 	
+	private void logout(Map<String, String> parameter) {
+		cookies = "logined=;userId=";
+		setResponseParam("/user/login.html", "200");
+	}
+	
 	private boolean loginCheck(Map<String, String> parameter) {
 		//조회
 		User user =  DataBase.findUserById(parameter.get("userId"));
@@ -132,29 +113,26 @@ public class Action {
 			return;
 		}
 		
+		//회원 리스트 조회
 		Collection<User> list = DataBase.findAll();
 		
 		//html생성
 		StringBuilder userHtml = new StringBuilder();
+		
+		int rownum = 0;
 		for (User user : list) {
 			log.info("list ====> {}", user);
-			userHtml.append(user);
-			
-			//TODO : 해야함
-			
 			userHtml.append("<tr>");
-			userHtml.append("<th scope=\"row\">1</th> <td>" + user.getUserId() + "</td> <td>자바지기</td> <td>javajigi@sample.net</td><td><a href=\"#\" class=\"btn btn-success\" role=\"button\">수정</a></td>");
-            userHtml.append("/<tr>");
+			userHtml.append("<th scope=\"row\">").append(++rownum).append("</th>");
+			userHtml.append("<td>").append(user.getUserId()).append("</td>");
+			userHtml.append("<td>").append(user.getName()).append("</td>");
+			userHtml.append("<td>").append(user.getEmail()).append("</td>");
+			userHtml.append("<td><a href=\"#\" class=\"btn btn-success\" role=\"button\">수정</a></td>");
+            userHtml.append("</tr>");
 		}
+		model.put("list", userHtml.toString());
 		
-		
-		
-		
-		
-		//회원가입후 리다이렉트
 		setResponseParam("/user/list.html", "200");
-		
-		returnMap.put("list", list);
 	}
 
 
