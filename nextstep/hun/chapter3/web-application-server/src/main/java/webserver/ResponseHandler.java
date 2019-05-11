@@ -17,6 +17,7 @@ public class ResponseHandler {
 	private String code;
 	private String type;
 	private String url;
+	private String cookie;
 	private int lengthOfBodyContent;
 	
 	public ResponseHandler(String code, String url) {
@@ -48,8 +49,6 @@ public class ResponseHandler {
 	private void responseHeader(DataOutputStream dos) {
 		if (code.equals("302")) {
 			response302Header(dos, url);
-		} else if (code.equals("999")) {
-			responseLoginHeader(dos, url);
 		} else {
 			response200Header(dos);
 		}
@@ -58,23 +57,13 @@ public class ResponseHandler {
 	private void response302Header(DataOutputStream dos, String url) {
         try {
             dos.writeBytes("HTTP/1.1 302 OK \r\n");
+            dos.writeBytes("Set-Cookie: " + cookie + "\r\n");
             dos.writeBytes("Location : " + url + "\r\n");
             dos.writeBytes("\r\n");
         } catch (IOException e) {
             log.error(e.getMessage());
         }
     }
-	
-	private void responseLoginHeader(DataOutputStream dos, String url) {
-		try {
-			dos.writeBytes("HTTP/1.1 302 OK \r\n");
-			dos.writeBytes("Set-Cookie: logined=true\r\n");
-			dos.writeBytes("Location : " + url + "\r\n");
-			dos.writeBytes("\r\n");
-		} catch (IOException e) {
-			log.error(e.getMessage());
-		}
-	}
 	
 	private void response200Header(DataOutputStream dos) {
 		try {
@@ -87,6 +76,17 @@ public class ResponseHandler {
         }
     }
 	
+	private void responseListHeader(DataOutputStream dos, String url) {
+		try {
+			dos.writeBytes("HTTP/1.1 302 OK \r\n");
+			dos.writeBytes("Set-Cookie: " + cookie + "\r\n");
+			dos.writeBytes("Location : " + url + "\r\n");
+			dos.writeBytes("\r\n");
+		} catch (IOException e) {
+			log.error(e.getMessage());
+		}
+	}
+	
 	private void responseBody(DataOutputStream dos, byte[] body) {
         try {
             dos.write(body, 0, body.length);
@@ -95,5 +95,9 @@ public class ResponseHandler {
             log.error(e.getMessage());
         }
     }
+
+	public void setCookie(String cookie) {
+		this.cookie = cookie;
+	}
 	
 }

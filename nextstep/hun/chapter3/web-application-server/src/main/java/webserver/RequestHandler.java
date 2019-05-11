@@ -26,8 +26,7 @@ public class RequestHandler extends Thread {
     }
 
     public void run() {
-        log.debug("New Client Connect! Connected IP : {}, Port : {}", connection.getInetAddress(),
-                connection.getPort());
+        //log.debug("New Client Connect! Connected IP : {}, Port : {}", connection.getInetAddress(),connection.getPort());
 
         try (InputStream in = connection.getInputStream(); OutputStream out = connection.getOutputStream()) {
 			BufferedReader buffer = new BufferedReader(new InputStreamReader(in,"UTF-8"));
@@ -51,16 +50,21 @@ public class RequestHandler extends Thread {
 					contentLength = getContentLength(line);
 				}
 				
-				log.debug(line);
+				if (line.indexOf("Cookie") >= 0) {
+					action.setCookies(line.replace("Cookie: ", ""));
+				}
+				
+				//log.debug(line);
 			}//while
 			
 			
 			//param
-			Map<String, String> param = getParam(buffer, requestMap, contentLength);
+			Map<String, String> parameter = getParameter(buffer, requestMap, contentLength);
 			
 			//처리
 			String url = (String) requestMap.get("url");
-			action.transmission(url, param, out);
+			action.setMethod((String) requestMap.get("method"));
+			action.transmission(url, parameter, out);
 			
         } catch (IOException e) {
             log.error(e.getMessage());
@@ -103,7 +107,7 @@ public class RequestHandler extends Thread {
 		}
 	}*/
 
-	 private Map<String, String> getParam(BufferedReader buffer, Map<String, Object> requestMap, int contentLength) throws IOException {
+	 private Map<String, String> getParameter(BufferedReader buffer, Map<String, Object> requestMap, int contentLength) throws IOException {
 		 if ("POST".equals((String) requestMap.get("method"))) {
 			 String body = IOUtils.readData(buffer, contentLength);
 			return HttpRequestUtils.parseQueryString(body);

@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 
 import db.DataBase;
 import model.User;
+import util.HttpRequestUtils;
 import util.IOUtils;
 import webserver.ResponseHandler;
 
@@ -23,16 +24,18 @@ public class Action {
 	Map<String, String> responseParam = new HashMap<String, String>(); 
 	Map<String, Object> returnMap = new HashMap<String, Object>(); 
 	
-	
-	public void transmission(String url, Map<String, String> param, OutputStream out) throws IOException {
+	private String cookies;
+	private String method;
+
+	public void transmission(String url, Map<String, String> parameter, OutputStream out) throws IOException {
 		log.debug("요청 URL ====>   {}", url);
 		
 		if (url.indexOf("create") >= 0) {
-			create(param);
+			create(parameter);
 		} else if (url.indexOf("login") >= 0) {
-			login(param);
+			login(parameter);
 		} else if (url.indexOf("list") >= 0) {
-			list(param);
+			list(parameter);
 		} else {
 			defaultAction(url);
 		}
@@ -42,6 +45,7 @@ public class Action {
 		//byte[] body = getBody(url);
 		
 		//responseHandler.response(out, body);
+		responseHandler.setCookie(cookies);
 		responseHandler.response(out);
 	}
 	
@@ -76,8 +80,8 @@ public class Action {
 	}
 	
 	//회원가입
-	private void create(Map<String, String> param) {
-		User user = new User(param);
+	private void create(Map<String, String> parameter) {
+		User user = new User(parameter);
 		
 		log.debug("회원가입 정보 ====>   {}", user);
 
@@ -89,27 +93,85 @@ public class Action {
 	}		
 	
 	//로그인
-	private void login(Map<String, String> param) {
+	private void login(Map<String, String> parameter) {
 		
-		//조회
-		User user =  DataBase.findUserById(param.get("userId"));
+		if (method.equals("GET")) {
+			setResponseParam("/user/login.html", "200");
+			return;
+		}
 		
-		boolean logined = false;
-		
-		if (user == null) {
-			log.debug("로그인 실패");
-			setResponseParam("/user/login_failed.html", "200");
-			
+		//POST
+		if (loginCheck(parameter)) {
+			log.warn("로그인 성공");
+			cookies = "logined=true";
+			setResponseParam("/index.html", "302");
 		} else {
-			log.debug("로그인 성공!! 로그인 정보 ====>   {}", user);
-			logined = true;
-			setResponseParam("/index.html", "999");
+			log.warn("로그인 실패");
+			cookies = "logined=false";
+			setResponseParam("/user/login_failed.html", "200");
 		}
 	}
 	
-	private void list(Map<String, String> param) {
+	private boolean loginCheck(Map<String, String> parameter) {
+		//조회
+		User user =  DataBase.findUserById(parameter.get("userId"));
+		
+		if (user != null) {
+			return user.getPassword().equals(parameter.get("password"));
+		}
+		
+		return false;
+	}
+
+
+	private void list(Map<String, String> parameter) {
+		
+		//로그인유무 판단
+		if(isLogin() == false) {
+			setResponseParam("/login.html", "200");
+			return;
+		}
+		
 		Collection<User> list = DataBase.findAll();
+		
+		//html생성
+		StringBuilder userHtml = new StringBuilder();
+		for (User user : list) {
+			log.info("list ====> {}", user);
+			userHtml.append(user);
+			
+			//TODO : 해야함
+			
+			userHtml.append("<tr>");
+			userHtml.append("<th scope=\"row\">1</th> <td>" + user.getUserId() + "</td> <td>자바지기</td> <td>javajigi@sample.net</td><td><a href=\"#\" class=\"btn btn-success\" role=\"button\">수정</a></td>");
+            userHtml.append("/<tr>");
+		}
+		
+		
+		
+		
+		
+		//회원가입후 리다이렉트
+		setResponseParam("/user/list.html", "200");
+		
 		returnMap.put("list", list);
+	}
+
+
+	private boolean isLogin() {
+		Map<String, String> map = HttpRequestUtils.parseCookies(cookies);
+		return Boolean.parseBoolean(map.get("logined"));
+	}
+
+	public void setMethod(String method) {
+		this.method = method;
+	}
+	
+	public String getCookies() {
+		return cookies;
+	}
+	public void setCookies(String cookies) {
+		this.cookies = cookies;
 	}
 	
 }
